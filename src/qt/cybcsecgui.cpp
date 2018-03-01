@@ -86,7 +86,7 @@ CybCSecGUI::CybCSecGUI(QWidget *parent):
     setCentralWidget(webView);
 
     resize(1280, 720);
-    setWindowTitle(tr("CybCSec") + " - " + tr("Client"));
+    setWindowTitle(tr("Ihor") + " " + tr("Chaban"));
 #ifndef Q_OS_MAC
     qApp->setWindowIcon(QIcon(":icons/cybcsec"));
     setWindowIcon(QIcon(":icons/cybcsec"));
