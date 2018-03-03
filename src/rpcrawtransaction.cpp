@@ -4,6 +4,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <boost/assign/list_of.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "base58.h"
 #include "rpcserver.h"
@@ -601,4 +602,78 @@ Value sendrawtransaction(const Array& params, bool fHelp)
     RelayTransaction(tx, hashTx);
 
     return hashTx.GetHex();
+}
+
+Value checkaddresstransactions(const Array& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw std::runtime_error(
+                "checkaddresstransactions <address>\n"
+                "Checks whether address has transactions in blockchain.");
+
+    // getting input address from params
+    CBitcoinAddress input(params[0].get_str());
+    std::string result;
+
+    // input address validation
+    if (!input.IsValid())
+    {
+        result = "address is not valid";
+        return result;
+    }
+
+    CBlock block;
+    CBlockIndex *pindex = pindexGenesisBlock;
+    std::set<CBitcoinAddress> txaddresses;
+    std::vector<CTxDestination> destaddresses;
+    std::vector<uint256> foundtxid;
+    txnouttype type;
+    int nRequired;
+
+    // loop over entire blockchain from first block to last
+    while (pindex)
+    {
+        block.ReadFromDisk(pindex, true);
+        BOOST_FOREACH(CTransaction& tx, block.vtx)
+        {
+            txaddresses.clear();
+            BOOST_FOREACH(CTxOut& txout, tx.vout)
+            {
+                destaddresses.clear();
+
+                // extracting destinations from every scriptPubKey
+                // if succesfully extracted then extract addresses
+                if (ExtractDestinations(txout.scriptPubKey, type, destaddresses, nRequired))
+                    {
+                        BOOST_FOREACH(CTxDestination& addr, destaddresses)
+                        {
+                            txaddresses.insert(CBitcoinAddress(addr));
+                        }
+                    }
+            }
+
+            // if search address matches address from current transaction
+            // then add current transaction to results
+            if (txaddresses.find(input) != txaddresses.end())
+            {
+                foundtxid.push_back(tx.GetHash());
+            }
+        }
+        pindex = pindex->pnext;
+    }
+
+    if (!foundtxid.empty())
+    {
+        result = "address found\n";
+        for (int i = 0; i < foundtxid.size(); i++)
+        {
+            result += "txid_" + boost::lexical_cast<std::string>(i) +
+                        " = " + foundtxid[i].ToString() + "\n";
+        }
+    } else
+    {
+        result = "address not found";
+    }
+
+    return result;
 }
